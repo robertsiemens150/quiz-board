@@ -1,0 +1,1362 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Quiz-Board (Jeopardy Style)</title>
+  <style>
+    :root{
+      --bg:#0b1020;
+      --panel:#121a33;
+      --cell:#1a2550;
+      --cellUsed:#10162f;
+      --text:#e9ecff;
+      --muted:#aab2e8;
+      --accent:#ffd34d;
+      --danger:#ff5a7a;
+      --ok:#48e59a;
+      --border:rgba(255,255,255,.12);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+      background:radial-gradient(1200px 600px at 20% 0%, #1a2a66 0%, var(--bg) 55%);
+      color:var(--text);
+      padding:18px;
+    }
+    header{
+      display:flex;
+      flex-wrap:wrap;
+      gap:12px;
+      align-items:center;
+      justify-content:space-between;
+      margin-bottom:14px;
+    }
+    h1{
+      margin:0;
+      font-size:18px;
+      letter-spacing:.2px;
+      font-weight:700;
+    }
+    .controls{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      align-items:center;
+    }
+    button{
+      background:rgba(255,255,255,.08);
+      color:var(--text);
+      border:1px solid var(--border);
+      border-radius:10px;
+      padding:10px 12px;
+      cursor:pointer;
+      font-weight:650;
+    }
+    button:hover{background:rgba(255,255,255,.12)}
+    button.primary{
+      background:rgba(255,211,77,.15);
+      border-color:rgba(255,211,77,.4);
+      color:var(--accent);
+    }
+    button.danger{
+      background:rgba(255,90,122,.12);
+      border-color:rgba(255,90,122,.35);
+      color:var(--danger);
+    }
+
+    .wrap{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap:14px;
+      max-width:1100px;
+      margin:0 auto;
+    }
+
+    .board{
+      background:rgba(255,255,255,.04);
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:10px;
+      overflow:hidden;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap:8px;
+    }
+
+    .cat{
+      background:rgba(255,255,255,.06);
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:12px 10px;
+      text-align:center;
+      font-weight:800;
+      letter-spacing:.3px;
+      min-height:54px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    .cell{
+      background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.03));
+      border:1px solid var(--border);
+      border-radius:12px;
+      min-height:76px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:22px;
+      font-weight:900;
+      color:var(--accent);
+      cursor:pointer;
+      user-select:none;
+      position:relative;
+    }
+    .cell:hover{outline:2px solid rgba(255,211,77,.18)}
+    .cell.used{
+      background:rgba(255,255,255,.02);
+      color:rgba(255,255,255,.18);
+      cursor:not-allowed;
+      outline:none;
+    }
+    .cell.used::after{
+      content:"BENUTZT";
+      position:absolute;
+      bottom:8px;
+      font-size:11px;
+      letter-spacing:.6px;
+      color:rgba(255,255,255,.25);
+    }
+
+    .scoreboard{
+      background:rgba(255,255,255,.04);
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:12px;
+    }
+    .scorehead{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:10px;
+    }
+    .scorehead h2{
+      margin:0;
+      font-size:14px;
+      color:var(--muted);
+      font-weight:800;
+      letter-spacing:.3px;
+      text-transform:uppercase;
+    }
+    .scorelist{
+      display:grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap:10px;
+    }
+    .player{
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:10px;
+      background:rgba(255,255,255,.03);
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+    .player input{
+      width:100%;
+      background:rgba(255,255,255,.06);
+      color:var(--text);
+      border:1px solid var(--border);
+      border-radius:10px;
+      padding:8px 10px;
+      font-weight:650;
+      outline:none;
+    }
+    .row{
+      display:flex;
+      gap:8px;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .points{
+      font-size:20px;
+      font-weight:900;
+      color:var(--ok);
+    }
+    .mini{
+      display:flex;
+      gap:8px;
+    }
+    .mini button{padding:8px 10px; border-radius:10px}
+    .mini button.plus{color:var(--ok); border-color:rgba(72,229,154,.35); background:rgba(72,229,154,.10)}
+    .mini button.minus{color:var(--danger); border-color:rgba(255,90,122,.35); background:rgba(255,90,122,.10)}
+
+    /* Modal */
+    .modalBack{
+      position:fixed; inset:0;
+      background:rgba(0,0,0,.55);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:16px;
+      z-index:50;
+    }
+    .modal{
+      width:min(900px, 100%);
+      background:rgba(18,26,51,.98);
+      border:1px solid var(--border);
+      border-radius:16px;
+      padding:14px;
+      box-shadow:0 20px 80px rgba(0,0,0,.45);
+    }
+    .modalTop{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:10px;
+    }
+    .tag{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      align-items:center;
+      color:var(--muted);
+      font-weight:750;
+      font-size:13px;
+    }
+    .tag span{
+      padding:6px 10px;
+      border:1px solid var(--border);
+      border-radius:999px;
+      background:rgba(255,255,255,.04);
+    }
+    .close{
+      border-radius:12px;
+      padding:8px 10px;
+    }
+    .qbox{
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:14px;
+      background:rgba(255,255,255,.03);
+      min-height:160px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+    .qtitle{
+      margin:0;
+      font-size:13px;
+      color:var(--muted);
+      font-weight:850;
+      letter-spacing:.3px;
+      text-transform:uppercase;
+    }
+    .qtext{
+      margin:0;
+      font-size:20px;
+      font-weight:850;
+      line-height:1.25;
+    }
+    .answer{
+      margin:0;
+      padding-top:10px;
+      border-top:1px dashed rgba(255,255,255,.18);
+      color:rgba(233,236,255,.92);
+      font-size:18px;
+      font-weight:750;
+      display:none;
+    }
+    .modalActions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      justify-content:flex-end;
+      margin-top:12px;
+    }
+
+    @media (max-width:850px){
+      .scorelist{grid-template-columns: repeat(2, minmax(0, 1fr));}
+      .cell{min-height:64px; font-size:20px;}
+      .cat{min-height:48px; font-size:13px;}
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Quiz-Board (Jeopardy Style)</h1>
+      <div class="controls">
+        <button class="primary" id="btnReset">Reset (neue Kategorien)</button>
+        <button id="btnShuffle">Nur Fragen neu mischen</button>
+        <button class="danger" id="btnClearUsed">Alle Felder wieder aktiv</button>
+      </div>
+    </header>
+
+    <section class="board">
+      <div class="grid" id="grid"></div>
+    </section>
+
+    <section class="scoreboard">
+      <div class="scorehead">
+        <h2>Punktetafel (optional)</h2>
+        <button id="btnResetScores">Scores = 0</button>
+      </div>
+      <div class="scorelist" id="scores"></div>
+      <p style="margin:10px 0 0;color:var(--muted);font-size:13px;">
+        Tipp: Macht einen als Host. Der Host klickt die Felder an und zeigt Frage/Antwort.
+      </p>
+    </section>
+  </div>
+
+  <!-- Modal -->
+  <div class="modalBack" id="modalBack">
+    <div class="modal">
+      <div class="modalTop">
+        <div class="tag" id="modalTag"></div>
+        <button class="close" id="btnClose">✕</button>
+      </div>
+
+      <div class="qbox">
+        <p class="qtitle">Frage</p>
+        <p class="qtext" id="qText"></p>
+        <p class="answer" id="aText"></p>
+      </div>
+
+      <div class="modalActions">
+        <button id="btnShowAnswer">Antwort zeigen</button>
+        <button class="primary" id="btnMarkUsed">Als benutzt markieren</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+/**
+ * Quiz-Board: 5 Kategorien x 5 Werte (100..500)
+ * - Reset: wählt 5 Kategorien zufällig aus dem Pool und baut Board neu
+ * - Klick auf Feld: Modal zeigt Frage, dann Antwort, dann benutzt
+ * - Scoreboard: 4 Spieler, manuell +/- 100 Schritte (ihr könnt auch direkt tippen)
+ */
+
+const VALUES = [100, 200, 300, 400, 500];
+
+// Du kannst hier jederzeit neue Kategorien hinzufügen.
+// Jede Kategorie hat 5 Fragen (für 100..500). Bitte ca. passende Schwierigkeit.
+const CATEGORY_POOL = [
+/* ================= SPORT ================= */
+{
+name:"Sport",
+levels:{
+100:[
+{q:"Wie viele Spieler stehen bei einer Fußballmannschaft gleichzeitig auf dem Feld?",a:"11"},
+{q:"Welche Sportart nutzt einen Federball?",a:"Badminton"},
+{q:"Wie viele Minuten dauert ein Fußballspiel regulär?",a:"90"},
+{q:"Welche Sportart wird bei den Tour de France ausgeübt?",a:"Radsport"},
+{q:"Wie viele Punkte gibt ein normaler Korb im Basketball?",a:"2"}
+
+],
+200:[
+{q:"In welcher Sportart gibt es einen Tiebreak?",a:"Tennis"},
+{q:"Wie viele Ringe hat das olympische Symbol?",a:"5"},
+{q:"Wie viele Punkte zählt ein Touchdown ohne Extras?",a:"6"},
+{q:"Wie heißt die höchste Spielklasse im deutschen Fußball?",a:"Bundesliga"},
+{q:"Welche olympische Kampfsportart stammt aus Japan?",a:"Judo"}
+],
+300:[
+{q:"Wie lang ist ein olympisches Schwimmbecken?",a:"50 Meter"},
+{q:"Wie viele Spieler stehen beim Handball pro Team auf dem Feld?",a:"7"},
+{q:"In welcher Sportart gibt es die Position des Liberos?",a:"Volleyball"},
+{q:"Wie viele Sätze braucht man zum Sieg im Herren-Tennis-Grand-Slam?",a:"3"},
+{q:"Wie viele Minuten dauert ein reguläres Basketballspiel (NBA)?", a:"48"}
+
+],
+400:[
+{q:"In welcher Sportart wird der Stanley Cup vergeben?",a:"Eishockey"},
+{q:"Wie viele Ringrichter bewerten einen olympischen Boxkampf?", a:"5"},
+{q:"Wie viele Spieler sind beim Volleyball pro Team auf dem Feld?",a:"6"},
+{q:"Wie viele Gewichtsklassen gibt es im olympischen Boxen der Männer (seit Paris 2024)?", a:"7"},
+{q:"Welche nicht olympische Kampfsportart stammt aus Japan?",a:"Sumo, Aikido, Kendo, (Karate einmal)"}
+],
+500:[
+{q:"In welchem Jahr fanden die ersten modernen Olympischen Spiele statt?",a:"1896"},
+{q:"Wie viele Titel gewann Michael Schumacher in der Formel 1?",a:"7"},
+{q:"Welche Nation gewann die Fußball-WM 1990?",a:"Deutschland"},
+{q:"Wie viele Bahnen hat ein olympisches Schwimmbecken?",a:"8"},
+{q:"Wie lang ist ein olympischer Marathon exakt (auch erste Nachkommastelle)?",a:"42,195 Kilometer"}
+
+]
+}
+},
+
+/* ================= ANIME (SCHWER) ================= */
+{
+name:"Anime",
+levels:{
+100:[
+{q:"Wie heißt der Autor von One Piece?",a:"Eiichiro Oda"},
+{q:"Welcher Anime spielt in der Welt von Shinobi?",a:"Naruto"},
+{q:"Wie heißt die Organisation in Attack on Titan?",a:"Aufklärungstrupp"},
+{q:"Wie heißt der Bruder von Sasuke?",a:"Itachi"},
+{q:"Wie heißt der Anime mit Dämonenjägern?",a:"Demon Slayer"}
+],
+200:[
+{q:"Wie heißt Narutos erster Sensei?",a:"Kakashi Hatake"},
+{q:"Welche Macht nutzt Light Yagami?",a:"Death Note"},
+{q:"Wie heißt die Welt in Sword Art Online?",a:"Aincrad"},
+{q:"Wie heißt Luffys Bruder?",a:"Ace"},
+{q:"Wie heißt der Titan von Eren zu Beginn?",a:"Der Attack-Titan"}
+],
+300:[
+{q:"Welche Frucht hat Luffy gegessen?",a:"Gum-Gum-Frucht"},
+{q:"Wie viele Hokage gab es vor Naruto?",a:"6"},
+{q:"Wie heißt das Dorf von Naruto?",a:"Konohagakure"},
+{q:"Wie heißt die Organisation mit roten Wolken?",a:"Akatsuki"},
+{q:"Wie heißt das Notizbuch in Death Note?",a:"Death Note"}
+],
+400:[
+{q:"Wie heißt Narutos Chakra-Element?",a:"Wind"},
+{q:"Wer tötete den dritten Hokage?",a:"Orochimaru"},
+{q:"Wie heißt der Schöpfer der Titanenkräfte?",a:"Ymir"},
+{q:"Welche Fähigkeit hat Sharingan?",a:"Kopieren von Jutsu"},
+{q:"Wie heißt Sasukes Bruder komplett?",a:"Itachi Uchiha"}
+],
+500:[
+{q:"Wie heißt der erste Jinchūriki?",a:"Hagoromo"},
+{q:"Wie viele Bijuu existieren?",a:"9"},
+{q:"Wie heißt der Clan von Madara?",a:"Uchiha"},
+{q:"Wie heißt Narutos Sohn?",a:"Boruto"},
+{q:"Wie heißt der Ozean in One Piece?",a:"All Blue"}
+]
+}
+},
+
+/* ================= GAMING (SCHWER) ================= */
+{
+name:"Gaming",
+levels:{
+100:[
+{q:"Welche Firma entwickelte Minecraft?",a:"Mojang"},
+{q:"Wie heißt der Bruder von Mario?",a:"Luigi"},
+{q:"Welche Konsole stammt von Sony?",a:"PlayStation"},
+{q:"Welche Farbe hat der Creeper?",a:"Grün"},
+{q:"Wie heißt das Genre von Fortnite?",a:"Battle Royale"}
+],
+200:[
+{q:"Wie heißt der Hauptcharakter in The Witcher?",a:"Geralt von Riva"},
+{q:"Welche Firma entwickelte GTA?",a:"Rockstar Games"},
+{q:"Wie heißt die Währung in GTA Online?",a:"GTA-Dollar"},
+{q:"Wie heißt der Hauptgegner in Minecraft?",a:"Enderdrache"},
+{q:"Wie heißt der Launcher von Blizzard?",a:"Battle.net"}
+],
+300:[
+{q:"In welchem Jahr erschien Minecraft offiziell?",a:"2011"},
+{q:"Wie heißt die Engine von Source-Spielen?",a:"Source Engine"},
+{q:"Wie viele Spieler sind in einem CS-Match pro Team?",a:"5"},
+{q:"Wie heißt die Hauptstadt von Skyrim?",a:"Solitude"},
+{q:"Wie heißt die Firma hinter Steam?",a:"Valve"}
+],
+400:[
+{q:"Wie heißt der Hauptcharakter von Half-Life?",a:"Gordon Freeman"},
+{q:"Welche Engine nutzt Unreal Tournament?",a:"Unreal Engine"},
+{q:"Wie heißt die Spielwelt von Zelda?",a:"Hyrule"},
+{q:"Wie heißt der Modus ohne HUD in Minecraft?",a:"Hardcore"},
+{q:"Wie heißt der Hauptboss in Dark Souls?",a:"Gwyn"}
+],
+500:[
+{q:"Wie heißt der Entwickler von Elden Ring?",a:"FromSoftware"},
+{q:"Welche Programmiersprache nutzt Unity hauptsächlich?",a:"C#"},
+{q:"Wie heißt das erste Pokémon im Pokédex?",a:"Bisasam"},
+{q:"Wie heißt die Hauptstadt von Night City?",a:"Night City"},
+{q:"Wie heißt die KI aus Portal?",a:"GLaDOS"}
+]
+}
+},
+
+/* ================= TIERE ================= */
+{
+name:"Tiere",
+levels:{
+100:[
+{q:"Welches Tier ist das größte an Land?",a:"Elefant"},
+{q:"Welches Tier sagt man nach, neun Leben zu haben?",a:"Katze"},
+{q:"Welches Tier ist der König der Tiere?",a:"Löwe"},
+{q:"Welches Tier lebt im Wasser und atmet Luft?",a:"Wal"},
+{q:"Welches Tier legt Eier und fliegt?",a:"Vogel"}
+],
+200:[
+{q:"Welches Tier ist das schnellste an Land?",a:"Gepard"},
+{q:"Welches Tier kann seine Farbe ändern?",a:"Chamäleon"},
+{q:"Welches Tier hat einen Beutel?",a:"Känguru"},
+{q:"Welches Tier ist ein Säugetier im Wasser?",a:"Delfin"},
+{q:"Welches Tier hat Streifen?",a:"Zebra"}
+],
+300:[
+{q:"Wie viele Herzen hat ein Oktopus?",a:"3"},
+{q:"Welches Tier kann Strom erzeugen?",a:"Zitteraal"},
+{q:"Welches Tier hat den längsten Hals?",a:"Giraffe"},
+{q:"Welches Tier kann rückwärts fliegen?",a:"Kolibri"},
+{q:"Welches Tier schläft im Stehen?",a:"Pferd"}
+],
+400:[
+{q:"Wie heißt der größte Hai?",a:"Walhai"},
+{q:"Welches Tier kann UV-Licht sehen?",a:"Biene"},
+{q:"Wie viele Beine hat eine Spinne?",a:"8"},
+{q:"Welches Tier ist das intelligenteste nach Menschen?",a:"Delfin"},
+{q:"Welches Tier lebt am längsten?",a:"Grönlandhai"}
+],
+500:[
+{q:"Wie heißt die größte Schlange der Welt?",a:"Anakonda"},
+{q:"Welches Tier hat das stärkste Gift?",a:"Würfelqualle"},
+{q:"Wie heißt das größte Tier aller Zeiten?",a:"Blauwal"},
+{q:"Welches Tier kann sich selbst klonen?",a:"Quallenart"},
+{q:"Wie heißt das schnellste Tier im Wasser?",a:"Segelfisch"}
+]
+}
+},
+
+{
+name:"Schätzfragen",
+levels:{
+100:[
+{q:"Wie viele Tage hat ein Jahr?",a:"365"},
+{q:"Wie viele Kontinente gibt es?",a:"7"},
+{q:"Wie viele Minuten hat ein Tag?",a:"1440"},
+{q:"Wie viele Zähne hat ein Erwachsener normalerweise?",a:"32"},
+{q:"Wie viele Stunden hat eine Woche?",a:"168"}
+],
+200:[
+{q:"Wie viele Länder gibt es ungefähr auf der Welt?",a:"195 (±10)"},
+{q:"Wie viele Knochen hat der Mensch?",a:"206"},
+{q:"Wie viele Sekunden hat eine Stunde?",a:"3600"},
+{q:"Wie viele Meter ist der Mount Everest hoch?",a:"8849 (±400 m)"},
+{q:"Wie viele Buchstaben hat das deutsche Alphabet?",a:"26"}
+],
+300:[
+{q:"Wie viele Millionen Einwohner hat Deutschland ungefähr?",a:"83 (±3 Mio)"},
+{q:"Wie viele Planeten hat unser Sonnensystem?",a:"8"},
+{q:"Wie viele Chromosomen hat der Mensch?",a:"46 (±2)"},
+{q:"Wie viele Länder sind in der EU?",a:"27 (±3)"},
+{q:"Wie viele Liter Blut hat ein Erwachsener?",a:"5 (±2 L)"}
+],
+400:[
+{q:"Wie viele Kilometer Umfang hat die Erde ungefähr?",a:"40075 (±1000 km)"},
+{q:"Wie viele Wörter hat die deutsche Sprache grob geschätzt?",a:"Über 300000 (±150000)"},
+{q:"Wie viele Sekunden hat ein Tag?",a:"86400"},
+{q:"Wie viele Tonnen wiegt ein Blauwal ungefähr?",a:"150"},
+{q:"Wie viele Muskeln hat der Mensch?",a:"Über 600 (±150)"}
+],
+500:[
+{q:"Wie viele Nervenzellen hat das menschliche Gehirn?",a:"Etwa 86 Milliarden (±25 Milliarden)"},
+{q:"Wie alt ist das Universum ungefähr?",a:"13,8 Milliarden Jahre (±4 Milliarden)"},
+{q:"Wie viele Herzschläge hat ein Mensch im Leben etwa?",a:"2,5 Milliarden (±1 Milliarde)"},
+{q:"Wie viele Kilometer legt die Erde pro Stunde zurück?",a:"107000 (±20000 km/h)"},
+{q:"Wie viele Sprachen gibt es weltweit?",a:"Über 7000 (±2000)"}
+]
+}
+},
+
+
+{
+name:"Biologie",
+levels:{
+100:[
+{q:"Was ist die kleinste lebende Einheit?",a:"Zelle"},
+{q:"Welches Organ pumpt Blut?",a:"Herz"},
+{q:"Welche Farbe hat Chlorophyll?",a:"Grün"},
+{q:"Was brauchen Pflanzen für Photosynthese?",a:"Licht"},
+{q:"Wie nennt man die Vererbungseinheit?",a:"Gen"}
+],
+200:[
+{q:"Wie viele Kammern hat das menschliche Herz?",a:"4"},
+{q:"Was transportieren rote Blutkörperchen?",a:"Sauerstoff"},
+{q:"Welche DNA-Form hat der Mensch?",a:"Doppelhelix"},
+{q:"Wo liegt der Zellkern?",a:"In eukaryotischen Zellen"},
+{q:"Wie nennt man die Lehre von Tieren?",a:"Zoologie"}
+],
+300:[
+{q:"Welche Organelle erzeugt Energie?",a:"Mitochondrium"},
+{q:"Wie heißt die Zellteilung bei Körperzellen?",a:"Mitose"},
+{q:"Welche Blutgruppe ist Universalspender?",a:"0 negativ"},
+{q:"Wie nennt man die Gesamtheit aller Gene?",a:"Genom"},
+{q:"Was reguliert Enzyme?",a:"Temperatur und pH-Wert"}
+],
+400:[
+{q:"Was ist eine Mutation?",a:"Veränderung des Erbguts"},
+{q:"Wie heißt der Prozess der Anpassung?",a:"Evolution"},
+{q:"Welche Base gehört nicht zur DNA?",a:"Uracil"},
+{q:"Wo findet die Translation statt?",a:"Ribosomen"},
+{q:"Wie nennt man programmierten Zelltod?",a:"Apoptose"}
+],
+500:[
+{q:"Was ist Epigenetik?",a:"Vererbung ohne DNA-Änderung"},
+{q:"Wie viele Basenpaare hat das menschliche Genom?",a:"Etwa 3 Milliarden"},
+{q:"Was ist ein Operon?",a:"Genregulationssystem"},
+{q:"Wie heißt Darwins Hauptwerk?",a:"On the Origin of Species"},
+{q:"Was sind Stammzellen?",a:"Undifferenzierte Zellen"}
+]
+}
+},
+
+{
+name:"Hauptstädte",
+levels:{
+100:[
+{q:"Hauptstadt von Frankreich?",a:"Paris"},
+{q:"Hauptstadt von Italien?",a:"Rom"},
+{q:"Hauptstadt von Spanien?",a:"Madrid"},
+{q:"Hauptstadt von Polen?",a:"Warschau"},
+{q:"Hauptstadt von Österreich?",a:"Wien"}
+],
+200:[
+{q:"Hauptstadt von Kanada?",a:"Ottawa"},
+{q:"Hauptstadt von Australien?",a:"Canberra"},
+{q:"Hauptstadt von Brasilien?",a:"Brasília"},
+{q:"Hauptstadt von Norwegen?",a:"Oslo"},
+{q:"Hauptstadt von Ungarn?",a:"Budapest"}
+],
+300:[
+{q:"Hauptstadt von Neuseeland?",a:"Wellington"},
+{q:"Hauptstadt von Südafrika?",a:"Pretoria, Kapstadt, Bloemfontein "},
+{q:"Hauptstadt von Thailand?",a:"Bangkok"},
+{q:"Hauptstadt von Peru?",a:"Lima"},
+{q:"Hauptstadt von Kirgistan?",a:"Bischkek"}
+],
+400:[
+{q:"Hauptstadt von Kasachstan?",a:"Astana"},
+{q:"Hauptstadt von Norwegen?",a:"Oslo"},
+{q:"Hauptstadt von Nigeria?",a:"Abuja"},
+{q:"Hauptstadt von Rumänien?",a:"Bukarest"},
+{q:"Hauptstadt von Indonesien?",a:"Jakarta"}
+
+],
+500:[
+
+{q:"Hauptstadt von Malaysia?",a:"Kuala Lumpur"},
+{q:"Hauptstadt von Estland?",a:"Tallinn"},
+{q:"Hauptstadt von Bhutan?",a:"Thimphu"},
+{q:"Hauptstadt von Senegal?",a:"Dakar"},
+{q:"Hauptstadt von Ghana?",a:"Accra"}
+]
+}
+},
+
+{
+name:"Astronomie",
+levels:{
+100:[
+{q:"Wie heißt unser Stern?",a:"Sonne"},
+{q:"Wie heißt unser Planet?",a:"Erde"},
+{q:"Was umkreist die Erde?",a:"Mond"},
+{q:"Welcher Planet ist rot?",a:"Mars"},
+{q:"Wie nennt man eine Sternschnuppe?",a:"Meteor"}
+],
+200:[
+{q:"Wie viele Planeten hat das Sonnensystem?",a:"8"},
+{q:"Welcher Planet hat Ringe?",a:"Saturn"},
+{q:"Was ist eine Galaxie?",a:"Ansammlung von Sternen"},
+{q:"Was ist ein Komet?",a:"Eis- und Staubkörper"},
+{q:"Welcher Planet ist der größte?",a:"Jupiter"}
+],
+300:[
+{q:"Wie heißt unsere Galaxie?",a:"Milchstraße"},
+{q:"Was ist ein Neutronenstern?",a:"Extrem dichter Stern"},
+{q:"Was misst ein Lichtjahr?",a:"Entfernung"},
+{q:"Was entsteht nach einer Supernova?",a:"Neutronenstern oder Schwarzes Loch"},
+{q:"Was ist die Sonnenkorona?",a:"Äußere Atmosphärenschicht"}
+],
+400:[
+{q:"Wie lange braucht Licht von der Sonne zur Erde?",a:"8 Minuten"},
+{q:"Was ist ein Exoplanet?",a:"Planet außerhalb des Sonnensystems"},
+{q:"Wie heißt das größte Teleskop?",a:"James Webb"},
+{q:"Was ist Dunkle Materie?",a:"Unsichtbare Masse"},
+{q:"Was ist eine Ellipsenbahn?",a:"Ovalbahn"}
+],
+500:[
+{q:"Was ist ein Ereignishorizont?",a:"Grenze eines Schwarzen Lochs"},
+{q:"Wie entsteht ein Pulsar?",a:"Rotierender Neutronenstern"},
+{q:"Was ist kosmische Hintergrundstrahlung?",a:"Urknallrest"},
+{q:"Wie alt ist das Universum?",a:"13,8 Milliarden Jahre"},
+{q:"Was ist Rotverschiebung?",a:"Ausdehnung des Universums"}
+]
+}
+},
+
+{
+name:"Naruto",
+levels:{
+100:[
+{q:"Wie heißt Narutos Nachname?",a:"Uzumaki"},
+{q:"Wie heißt das Fuchs-Bijuu in Naruto?",a:"Kurama"},
+{q:"Wie heißt das Team aus Naruto, in dem Sakura und Sasuke sind?",a:"Team 7"},
+{q:"Wie heißt Narutos Lieblingsessen?",a:"Ramen"},
+{q:"Wie heißt Narutos Lehrmeister (Sannin) mit weißen Haaren?",a:"Jiraiya"}
+],
+200:[
+{q:"Wie heißt Sasukes Schwert im späteren Verlauf (häufig genutzt)?",a:"Kusanagi"},
+{q:"Welche Augen-Fähigkeit ist das „Sharingan“?",a:"Dōjutsu"},
+{q:"Wie heißt die Prüfung, bei der viele Teams in einem Wald kämpfen?",a:"Chūnin-Auswahlprüfung (Wald der Toten)"},
+{q:"Wie heißt das Dorf von Gaara?",a:"Sunagakure"},
+{q:"Wie heißt Narutos Signatur-Jutsu (blauer Wirbelball)?",a:"Rasengan"}
+],
+300:[
+{q:"Wie heißt das Siegel auf Narutos Bauch, das Kurama hält?",a:"Acht-Trigramm-Siegel"},
+{q:"Wie heißt der zweite Hokage?",a:"Tobirama Senju"},
+{q:"Wie heißt die Technik, bei der Naruto viele Kopien macht?",a:"Kage Bunshin no Jutsu"},
+{q:"Wie heißt Sasukes Bruder (voller Name)?",a:"Itachi Uchiha"},
+{q:"Wie heißt die Dimension/Technik von Kakashis Mangekyō?",a:"Kamui"}
+],
+400:[
+{q:"Welche Person war der „Gelbe Blitz“ von Konoha?",a:"Minato Namikaze"},
+{q:"Wie heißt die Holz-Element-Fähigkeit (Elementkombination), die Hashirama nutzt?",a:"Mokuton"},
+{q:"Wie heißt das legendäre Schwert von Kisame?",a:"Samehada"},
+{q:"Wie heißt die Organisation, die Frieden durch Gewalt erzwingen wollte (Nagato)?",a:"Akatsuki"},
+{q:"Wie heißt die Technik, mit der Orochimaru Körper wechseln kann?",a:"Unsterblichkeits-/Körperwechsel-Jutsu (Fushi Tensei)"}
+],
+500:[
+{q:"Wie heißt der erste Jinchūriki von Kurama (vor Naruto)?",a:"Mito Uzumaki"},
+{q:"Wie heißt Obitos Mangekyō-Fähigkeit (kurz)?",a:"Kamui"},
+{q:"Wie heißt der Uchiha, der Izanagi massiv nutzte und später als „Evil“ bekannt wurde?",a:"Danzo Shimura"},
+{q:"Wie heißt die Schriftrolle/Technik, die Tote zurückholt (Kabuto/Orochimaru)?",a:"Edo Tensei"},
+{q:"Wie heißt das stärkste Genjutsu, das den Mond nutzt?",a:"Infinite Tsukuyomi"}
+]
+}
+},
+
+{
+name:"Kennzeichen (Domains)",
+levels:{
+100:[
+{q:"Welche Länder-Domain ist .de ?",a:"Deutschland"},
+{q:"Welche Länder-Domain ist .at ?",a:"Österreich"},
+{q:"Welche Länder-Domain ist .ch ?",a:"Schweiz"},
+{q:"Welche Länder-Domain ist .fr ?",a:"Frankreich"},
+{q:"Welche Länder-Domain ist .it ?",a:"Italien"}
+],
+200:[
+{q:"Welche Länder-Domain ist .es ?",a:"Spanien"},
+{q:"Welche Länder-Domain ist .pl ?",a:"Polen"},
+{q:"Welche Länder-Domain ist .se ?",a:"Schweden"},
+{q:"Welche Länder-Domain ist .jp ?",a:"Japan"},
+{q:"Welche Länder-Domain ist .ca ?",a:"Kanada"}
+],
+300:[
+{q:"Welche Länder-Domain ist .br ?",a:"Brasilien"},
+{q:"Welche Länder-Domain ist .kr ?",a:"Südkorea"},
+{q:"Welche Länder-Domain ist .in ?",a:"Indien"},
+{q:"Welche Länder-Domain ist .za ?",a:"Südafrika"},
+{q:"Welche Länder-Domain ist .nz ?",a:"Neuseeland"}
+],
+400:[
+{q:"Welche Länder-Domain ist .rs ?",a:"Serbien"},
+{q:"Welche Länder-Domain ist .by ?",a:"Belarus"},
+{q:"Welche Länder-Domain ist .md ?",a:"Moldau"},
+{q:"Welche Länder-Domain ist .ge ?",a:"Georgien"},
+{q:"Welche Länder-Domain ist .al ?",a:"Albanien"}
+],
+500:[
+{q:"Welche Länder-Domain ist .me ?",a:"Montenegro"},
+{q:"Welche Länder-Domain ist .ly ?",a:"Libyen"},
+{q:"Welche Länder-Domain ist .ma ?",a:"Marokko"},
+{q:"Welche Länder-Domain ist .dz ?",a:"Algerien"},
+{q:"Welche Länder-Domain ist .tn ?",a:"Tunesien"}
+]
+}
+},
+
+
+{
+name:"Musik",
+levels:{
+100:[
+{q:"Wie viele Tasten hat ein Klavier normalerweise?",a:"88"},
+{q:"Welche Band sang „Bohemian Rhapsody“?",a:"Queen"},
+{q:"Wer wird als „King of Pop“ bezeichnet?",a:"Michael Jackson"},
+{q:"Welche Band sang „Smells Like Teen Spirit“?",a:"Nirvana"},
+{q:"Welche Sängerin sang „Rolling in the Deep“?",a:"Adele"}
+],
+200:[
+{q:"Wie hieß der Sänger von Queen?",a:"Freddie Mercury"},
+{q:"Welche Band veröffentlichte das Album „Abbey Road“?",a:"The Beatles"},
+{q:"Welche Band sang „Hotel California“?",a:"Eagles"},
+{q:"Welche Sängerin wird „Queen of Soul“ genannt?",a:"Aretha Franklin"},
+{q:"Welche Band ist bekannt für „Back in Black“?",a:"AC/DC"}
+],
+300:[
+{q:"Welche Band veröffentlichte das Album „Nevermind“?",a:"Nirvana"},
+{q:"Wie heißt der Frontmann von U2?",a:"Bono"},
+{q:"Welche Sängerin sang „Like a Prayer“?",a:"Madonna"},
+{q:"Welche Band sang „Stairway to Heaven“?",a:"Led Zeppelin"},
+{q:"Wie heißt das Debütalbum von Billie Eilish?",a:"When We All Fall Asleep, Where Do We Go?"}
+],
+400:[
+{q:"Welche Band veröffentlichte das Album „OK Computer“?",a:"Radiohead"},
+{q:"Wie hieß David Bowies berühmtes Alter Ego?",a:"Ziggy Stardust"},
+{q:"Welche Band sang „Sweet Child O’ Mine“?",a:"Guns N’ Roses"},
+{q:"Welcher Musiker wird oft „The Boss“ genannt?",a:"Bruce Springsteen"},
+{q:"Welche Band veröffentlichte das Album „The Wall“?",a:"Pink Floyd"}
+],
+500:[
+{q:"Welches Queen-Album von 1975 enthält „Bohemian Rhapsody“?",a:"A Night at the Opera"},
+{q:"Wie hieß der ursprüngliche Schlagzeuger der Beatles?",a:"Pete Best"},
+{q:"Welches Album gilt als meistverkauftes der Musikgeschichte?",a:"Thriller"},
+{q:"Welche Band veröffentlichte das Album „Led Zeppelin IV“?",a:"Led Zeppelin"},
+{q:"Welcher Musiker veröffentlichte das Album „Purple Rain“?",a:"Prince"}
+]
+}
+},
+
+{
+name:"Sprachen erraten",
+levels:{
+100:[
+{q:"Hello, how are you?",a:"Englisch"},
+{q:"Hola, ¿cómo estás?",a:"Spanisch"},
+{q:"Bonjour, comment ça va?",a:"Französisch"},
+{q:"Ciao, come stai?",a:"Italienisch"},
+{q:"Hallo, wie geht es dir?",a:"Deutsch"}
+],
+200:[
+{q:"Olá, tudo bem?",a:"Portugiesisch"},
+{q:"Merhaba, nasılsın?",a:"Türkisch"},
+{q:"Привет, как дела?",a:"Russisch"},
+{q:"مرحبا كيف حالك؟",a:"Arabisch"},
+{q:"Hej, hvordan går det?",a:"Norwegisch"}
+],
+300:[
+{q:"Γεια σου, τι κάνεις;",a:"Griechisch"},
+{q:"Bună, ce mai faci?",a:"Rumänisch"},
+{q:"Pozdrav, kako si?",a:"Kroatisch"},
+{q:"Hei, mitä kuuluu?",a:"Finnisch"},
+{q:"Hola, com estàs?",a:"Katalanisch"}
+],
+400:[
+{q:"Dzień dobry, jak się masz?",a:"Polnisch"},
+{q:"Привіт, як справи?",a:"Ukrainisch"},
+{q:"Ahoj, jak se máš?",a:"Tschechisch"},
+{q:"God dag, hvordan har du det?",a:"Dänisch"},
+{q:"Halo, apa kabar?",a:"Indonesisch"}
+],
+500:[
+{q:"Xin chào, bạn khỏe không?",a:"Vietnamesisch"},
+{q:"Kumusta ka?",a:"Tagalog"},
+{q:"Hola, què tal?",a:"Katalanisch"}
+]
+}
+},
+
+
+
+{
+name:"Technik",
+levels:{
+100:[
+{q:"Wofür steht „CPU“?",a:"Central Processing Unit"},
+{q:"Wofür steht „RAM“?",a:"Random Access Memory"},
+{q:"Was ist ein Browser?",a:"Programm zum Surfen im Internet"},
+{q:"Was ist „WLAN“?",a:"Drahtloses Netzwerk"},
+{q:"Wofür steht „USB“?",a:"Universal Serial Bus"}
+],
+200:[
+{q:"Was ist der Unterschied zwischen HDD und SSD?",a:"SSD ist schneller, keine beweglichen Teile"},
+{q:"Was bedeutet „Open Source“?",a:"Quellcode ist öffentlich"},
+{q:"Wofür steht „GPU“?",a:"Grafikprozessor"},
+{q:"Was ist ein Betriebssystem?",a:"Basissoftware für Gerät/Apps"},
+{q:"Was ist „Cloud“ grob?",a:"Speicher/Services über Internet"}
+],
+300:[
+{q:"Was ist „2FA“?",a:"Zwei-Faktor-Authentifizierung"},
+{q:"Was ist ein „VPN“?",a:"Virtuelles privates Netzwerk"},
+{q:"Was ist der Unterschied zwischen HTTP und HTTPS?",a:"HTTPS ist verschlüsselt"},
+{q:"Was bedeutet „IP-Adresse“?",a:"Adresse eines Geräts im Netzwerk"},
+{q:"Was ist „Ping“?",a:"Latenz/Antwortzeit im Netzwerk"}
+],
+400:[
+{q:"Was ist ein „Firewall“?",a:"Filtert/Blockt Netzwerkverkehr"},
+{q:"Was ist der Zweck eines DNS?",a:"Übersetzt Domainnamen in IPs"},
+{q:"Was ist ein „Kernel“?",a:"Kern eines Betriebssystems"},
+{q:"Was bedeutet „Bandbreite“ im Internet?",a:"Datenmenge pro Zeit"},
+{q:"Was ist ein „Repository“?",a:"Projekt-Speicher, z.B. für Code"}
+],
+500:[
+{q:"Was ist der Unterschied zwischen symmetrischer und asymmetrischer Verschlüsselung?",a:"Symmetrisch: gleicher Schlüssel; asymmetrisch: Public/Private Key"},
+{q:"Was ist „Hashing“?",a:"Einweg-Umwandlung in Prüfsumme"},
+{q:"Was ist ein „Zero-Day“?",a:"Unbekannte Sicherheitslücke"},
+{q:"Warum ist RAM flüchtig?",a:"Inhalt geht ohne Strom verloren"},
+{q:"Was macht ein Load Balancer?",a:"Verteilt Traffic auf mehrere Server"}
+]
+}
+},
+
+{
+name:"Zurück in die Fahrschule",
+levels:{
+100:[
+{q:"Welche Farbe hat ein Stoppschild?",a:"Rot"},
+{q:"Was bedeutet ein rotes Ampellicht?",a:"Halten"},
+{q:"Wie heißt das Schild mit rotem Rand und weißer Mitte?",a:"Verbot der Einfahrt (je nach Symbol) / Allgemein: Verbotsschild"},
+{q:"Was bedeutet „Rechts vor Links“?",a:"Wer von rechts kommt, hat Vorfahrt"},
+{q:"Wofür ist der Sicherheitsgurt da?",a:"Schützt bei Unfällen"}
+],
+200:[
+{q:"Was bedeutet ein dreieckiges Schild mit rotem Rand?",a:"Warnschild"},
+{q:"Wie verhält man sich bei einem Zebrastreifen, wenn jemand warten will?",a:"Anhalten und passieren lassen"},
+{q:"Was bedeutet ein blaues rundes Schild?",a:"Gebot"},
+{q:"Was bedeutet ein gelbes Ortsschild (Beginn)?",a:"Beginn geschlossener Ortschaft"},
+{q:"Wann muss man den Blinker setzen?",a:"Vor dem Abbiegen/Spurwechsel"}
+],
+300:[
+{q:"Wer hat Vorfahrt: Kreisverkehr (mit Schild) oder Einfahrender?",a:"Fahrzeuge im Kreisverkehr"},
+{q:"Was ist der Zweck der Rettungsgasse?",a:"Rettungsfahrzeuge durchlassen"},
+{q:"Wie bildet man eine Rettungsgasse auf 3 Spuren?",a:"Links: ganz links, alle anderen nach rechts"},
+{q:"Was bedeutet das Schild „Vorfahrt gewähren“?",a:"Andere durchlassen"},
+{q:"Wie nennt man den Abstand bei 100 km/h als Faustregel?",a:"50 Meter (Halber Tacho)"}
+],
+400:[
+{q:"Was bedeutet das Schild „Überholverbot“?",a:"Überholen verboten"},
+{q:"Wann darf man rechts überholen?",a:"Innerorts bei mehreren Spuren/stockendem Verkehr (unter Bedingungen)"},
+{q:"Wie verhält man sich bei Blaulicht + Martinshorn?",a:"Platz machen, ggf. anhalten"},
+{q:"Was ist Aquaplaning?",a:"Reifen verlieren Kontakt wegen Wasserfilm"},
+{q:"Wie reagiert man bei Aquaplaning?",a:"Gas weg, nicht stark lenken, ggf. auskuppeln"}
+],
+500:[
+{q:"Welche Reihenfolge gilt an einer Kreuzung ohne Schilder/Ampeln?",a:"Rechts vor Links + Verkehrslage beachten"},
+{q:"Was ist der Anhalteweg grob?",a:"Reaktionsweg + Bremsweg"},
+{q:"Wie berechnet man den Reaktionsweg (Faustformel)?",a:"(Geschwindigkeit/10) * 3"},
+{q:"Wie berechnet man den Bremsweg bei normalem Bremsen (Faustformel)?",a:"(Geschwindigkeit/10)²"},
+{q:"Warum ist Handy am Steuer gefährlich und verboten?",a:"Ablenkung, längere Reaktionszeit, Unfallrisiko"}
+]
+}
+},
+
+{
+name:"Geografie",
+levels:{
+100:[
+{q:"Wie heißt der längste Fluss der Welt (oft genannt)?",a:"Nil (je nach Messung auch Amazonas)"},
+{q:"Wie heißt der größte Ozean?",a:"Pazifik"},
+{q:"Welche Wüste ist die größte heiße Wüste?",a:"Sahara"},
+{q:"Wie heißt das Gebirge zwischen Frankreich und Spanien?",a:"Pyrenäen"},
+{q:"Wie heißt der höchste Berg der Erde?",a:"Mount Everest"}
+],
+200:[
+{q:"Welche Meerenge trennt Europa und Afrika bei Spanien?",a:"Straße von Gibraltar"},
+{q:"Wie heißt die Hauptstadt von Island?",a:"Reykjavík"},
+{q:"Wie heißt der Fluss durch Rom?",a:"Tiber"},
+{q:"Wie heißt der höchste Berg Europas (häufig genannt)?",a:"Elbrus"},
+{q:"Welches Land hat die längste Küstenlinie?",a:"Kanada"}
+],
+300:[
+{q:"Wie heißt die größte Insel der Welt?",a:"Grönland"},
+{q:"Wie heißt das Gebirge in Marokko/Algerien/Tunesien?",a:"Atlasgebirge"},
+{q:"Wie heißt der See zwischen Israel/Palästina und Jordanien?",a:"Totes Meer"},
+{q:"Wie heißt der Fluss durch Budapest?",a:"Donau"},
+{q:"Welche Hauptstadt liegt an der Donau und heißt wie ein Landestyp?",a:"Wien (liegt an der Donau) – Trickfrage: mehrere Städte liegen an der Donau"}
+],
+400:[
+{q:"Wie heißt der Vulkan, der 79 n. Chr. Pompeji verschüttete?",a:"Vesuv"},
+{q:"Wie heißt die Hauptstadt von Nigeria?",a:"Abuja"},
+{q:"Wie heißt der höchste Berg Afrikas?",a:"Kilimandscharo"},
+{q:"Wie heißt die Landenge zwischen Nord- und Südamerika?",a:"Isthmus von Panama"},
+{q:"Wie heißt das Meer östlich von Griechenland?",a:"Ägäisches Meer"}
+],
+500:[
+{q:"Wie heißt die Hauptstadt von Bhutan?",a:"Thimphu"},
+{q:"Wie heißt die Hauptstadt von Papua-Neuguinea?",a:"Port Moresby"},
+{q:"Wie heißt die Hauptstadt von Madagaskar?",a:"Antananarivo"},
+{q:"Wie heißt die Hauptstadt von Mali?",a:"Bamako"},
+{q:"Wie heißt die Hauptstadt von Kirgisistan?",a:"Bischkek"}
+]
+}
+},
+
+{
+name:"Geschichte",
+levels:{
+100:[
+{q:"In welchem Jahr fiel die Berliner Mauer?",a:"1989"},
+{q:"Wie hieß das geteilte Land vor 1990 in West und Ost?",a:"Deutschland (BRD/DDR)"},
+{q:"Wie nennt man die Zeit nach dem Zweiten Weltkrieg allgemein?",a:"Nachkriegszeit"},
+{q:"Wie heißt die Hauptstadt Deutschlands?",a:"Berlin"},
+{q:"In welchem Jahr endete der Zweite Weltkrieg in Europa?",a:"1945"}
+],
+200:[
+{q:"Wie hieß das Bündnis der Sowjetunion im Kalten Krieg?",a:"Warschauer Pakt"},
+{q:"Wie hieß das westliche Militärbündnis?",a:"NATO"},
+{q:"Wie hieß der erste Bundeskanzler der BRD?",a:"Konrad Adenauer"},
+{q:"Wie nennt man die Politik der Entspannung in den 1970ern?",a:"Ostpolitik / Entspannungspolitik"},
+{q:"Wie heißt der Vertrag zur Wiedervereinigung 1990 grob?",a:"Zwei-plus-Vier-Vertrag"}
+],
+300:[
+{q:"Wie hieß der sowjetische Staatschef während Glasnost/Perestroika?",a:"Michail Gorbatschow"},
+{q:"Was war die „Kubakrise“?",a:"Konflikt 1962 wegen Raketen auf Kuba"},
+{q:"Wie hieß das Luftbrücken-Ziel 1948/49?",a:"West-Berlin versorgen"},
+{q:"Wie heißt die deutsche Verfassung?",a:"Grundgesetz"},
+{q:"Wie heißt die Revolution 1989 in der DDR oft?",a:"Friedliche Revolution"}
+],
+400:[
+{q:"Wie hieß der US-Präsident während der Kubakrise?",a:"John F. Kennedy"},
+{q:"Wie heißt das Symbol der Teilung in Berlin (Bauwerk)?",a:"Berliner Mauer"},
+{q:"Wie heißt der geheime DDR-Sicherheitsdienst?",a:"Stasi (MfS)"},
+{q:"Wie heißt der Plan zum Wiederaufbau Europas nach 1945 (USA)?",a:"Marshallplan"},
+{q:"Wie hieß die Währung in der DDR?",a:"Mark der DDR"}
+],
+500:[
+{q:"Wie heißt die Doktrin der USA zur Eindämmung des Kommunismus?",a:"Containment"},
+{q:"Wie heißt der Vertrag, der 1957 die EWG gründete?",a:"Römische Verträge"},
+{q:"Wie heißt die Konferenz 1945, die Deutschland aufteilte (mit Truman/Stalin/Churchill/Attlee)?",a:"Potsdamer Konferenz"},
+{q:"Wie hieß die Politik des Wettrüstens im Kalten Krieg?",a:"Rüstungswettlauf / nukleares Wettrüsten"},
+{q:"Wie heißt das Jahr, in dem die DDR gegründet wurde?",a:"1949"}
+]
+}
+},
+
+{
+name:"Filme & Serien",
+levels:{
+100:[
+{q:"Wie heißt die Zauberschule in Harry Potter?",a:"Hogwarts"},
+{q:"Wie heißt der Clown in ES (Stephen King)?",a:"Pennywise"},
+{q:"Wie heißt der Superheld mit Spinnennetz?",a:"Spider-Man"},
+{q:"Wie heißt die Filmreihe mit Autos und Tuning?",a:"Fast & Furious"},
+{q:"Wie heißt die Serie mit den vier Kindern in Hawkins?",a:"Stranger Things"}
+],
+200:[
+{q:"Wie heißt der Regisseur von Inception?",a:"Christopher Nolan"},
+{q:"Wie heißt der Vater in Star Wars (Identität zu Luke)?",a:"Darth Vader"},
+{q:"Wie heißt die Stadt in Batman?",a:"Gotham"},
+{q:"Wie heißt die Fantasy-Welt in Herr der Ringe?",a:"Mittelerde"},
+{q:"Wie heißt der Hauptcharakter in Breaking Bad?",a:"Walter White"}
+],
+300:[
+{q:"Wie heißt das fiktive Metall aus Black Panther?",a:"Vibranium"},
+{q:"Wie heißt der Drache in „Der Hobbit“?",a:"Smaug"},
+{q:"Wie heißt die KI in Matrix, die den Auserwählten trainiert?",a:"Morpheus (Trainer) – die KI-Welt heißt Matrix"},
+{q:"Wie heißt der Schauspieler von Jack Sparrow?",a:"Johnny Depp"},
+{q:"Wie heißt die Serie mit dem „Roten Hochzeit“-Moment?",a:"Game of Thrones"}
+],
+400:[
+{q:"Wie heißt der Planet der Wüste in Dune?",a:"Arrakis"},
+{q:"Wie heißt der Ringträger in Herr der Ringe?",a:"Frodo Beutlin"},
+{q:"Wie heißt die Firma in Jurassic Park?",a:"InGen"},
+{q:"Wie heißt die Serie mit „Winter is coming“?",a:"Game of Thrones"},
+{q:"Wie heißt der Film, in dem ein Mann in einem Hotel in Colorado durchdreht?",a:"The Shining"}
+],
+500:[
+{q:"Wie heißt der japanische Regisseur von „Spirited Away“?",a:"Hayao Miyazaki"},
+{q:"Wie heißt das Monster in „Alien“?",a:"Xenomorph"},
+{q:"Wie heißt der Film, der oft als erster moderner Blockbuster gilt (1975)?",a:"Der weiße Hai (Jaws)"},
+{q:"Wie heißt die Romanvorlage zu Blade Runner?",a:"Do Androids Dream of Electric Sheep?"},
+{q:"Wie heißt der Name des Schiffs in Alien?",a:"Nostromo"}
+]
+}
+},
+
+{
+name:"Essen & Trinken",
+levels:{
+100:[
+{q:"Aus welcher Frucht wird Guacamole gemacht?",a:"Avocado"},
+{q:"Welches Getränk ist typisch für Kaffee + Milch?",a:"Latte / Cappuccino"},
+{q:"Wie nennt man gefrorenes Wasser?",a:"Eis"},
+{q:"Was ist die Hauptzutat von Pommes?",a:"Kartoffeln"},
+{q:"Wie heißt das italienische Gericht mit Teig und Belag?",a:"Pizza"}
+],
+200:[
+{q:"Welche Zutat macht Brot meistens locker?",a:"Hefe (oder Sauerteig)"},
+{q:"Welche Küche ist bekannt für Sushi?",a:"Japanisch"},
+{q:"Wie nennt man Nudeln aus Hartweizen oft?",a:"Pasta"},
+{q:"Was ist Tofu aus?",a:"Sojabohnen"},
+{q:"Welches Gewürz ist getrocknete Baumrinde?",a:"Zimt"}
+],
+300:[
+{q:"Wie heißt das französische Gericht: Fleisch im Teigmantel (klassisch)?",a:"Wellington (Beef Wellington)"},
+{q:"Was ist „Umami“?",a:"Fünfte Geschmacksrichtung (herzhaft)"},
+{q:"Wie heißt das indische Getränk aus Joghurt?",a:"Lassi"},
+{q:"Was ist „Al dente“?",a:"Nudeln mit Biss"},
+{q:"Wie heißt die spanische Reispfanne?",a:"Paella"}
+],
+400:[
+{q:"Was ist der Unterschied zwischen Espresso und Filterkaffee grob?",a:"Andere Zubereitung/Druck, Espresso konzentrierter"},
+{q:"Was ist „Sashimi“?",a:"Rohfisch ohne Reis"},
+{q:"Welche Traube ist bekannt für Rotwein in Bordeaux?",a:"Merlot/Cabernet Sauvignon (häufig)"},
+{q:"Was ist „Mise en place“?",a:"Vorbereitung/Alles bereitstellen"},
+{q:"Wie heißt der italienische Nachtisch mit Mascarpone?",a:"Tiramisu"}
+],
+500:[
+{q:"Was ist „Maillard-Reaktion“?",a:"Bräunungsreaktion bei Hitze (Aromen)"},
+{q:"Was ist „Sous-vide“?",a:"Garen im Vakuumbeutel bei niedriger Temperatur"},
+{q:"Wie nennt man den Zuckerabbau ohne Sauerstoff in der Hefe?",a:"Gärung (Fermentation)"},
+{q:"Was ist „Sauerteig“ mikrobiologisch grob?",a:"Milchsäurebakterien + Hefen"},
+{q:"Was bedeutet „deglaçieren“?",a:"Bratensatz mit Flüssigkeit lösen"}
+]
+}
+},
+
+{
+name:"Zurück in die Schule",
+levels:{
+100:[
+{q:"Wie viele Minuten hat eine Stunde?",a:"60"},
+{q:"Wie heißt das Ergebnis einer Addition?",a:"Summe"},
+{q:"Wie heißt das Ergebnis einer Multiplikation?",a:"Produkt"},
+{q:"Wie nennt man ein Wort, das ein Nomen ersetzt?",a:"Pronomen"},
+{q:"Wie viele Tage hat eine Woche?",a:"7"}
+],
+200:[
+{q:"Wie nennt man das Gegenteil von „Addition“?",a:"Subtraktion"},
+{q:"Wie nennt man eine Zahl, die durch 2 teilbar ist?",a:"Gerade Zahl"},
+{q:"Was ist ein Synonym?",a:"Wort mit ähnlicher Bedeutung"},
+{q:"Wie heißt die kleinste Einheit im Text: Buchstabe/Wort/Satz?",a:"Wort (als sinntragende Einheit)"},
+{q:"Wie nennt man 90 Grad?",a:"Rechter Winkel"}
+],
+300:[
+{q:"Was ist ein Bruch (z.B. 3/4)?",a:"Teil eines Ganzen"},
+{q:"Wie nennt man die Form eines Dreiecks mit 2 gleichen Seiten?",a:"Gleichschenklig"},
+{q:"Was bedeutet „Photosynthese“ grob?",a:"Pflanzen erzeugen Zucker mit Licht"},
+{q:"Wie nennt man eine Aussage, die man beweisen kann?",a:"These/Behauptung"},
+{q:"Wie nennt man eine Darstellung mit Balken?",a:"Balkendiagramm"}
+],
+400:[
+{q:"Wie nennt man die Zahl unter dem Bruchstrich?",a:"Nenner"},
+{q:"Wie nennt man die Zahl über dem Bruchstrich?",a:"Zähler"},
+{q:"Was ist die Hauptstadt von NRW?",a:"Düsseldorf"},
+{q:"Was ist ein Oxymoron?",a:"Widerspruch in einem Ausdruck, bsp : bittersüß"},
+{q:"Wie heißt die geometrische Formel für Kreisfläche?",a:"πr²"}
+],
+500:[
+{q:"Was ist ein Quadratwurzel aus 144?",a:"12"},
+{q:"Was ist der Satz des Pythagoras?",a:"a²+b²=c²"},
+{q:"Was ist eine Metapher?",a:"Bildhafte Übertragung"},
+{q:"Was ist „Dreisatz“?",a:"Proportionalrechnung mit 3 Schritten"},
+{q:"Was bedeutet „Kausalität“?",a:"Ursache-Wirkung"}
+]
+}
+}
+];
+
+
+
+
+
+
+
+let currentCategories = [];
+let board = []; // [col][row] -> {value, q, a, used}
+
+const elGrid = document.getElementById("grid");
+const modalBack = document.getElementById("modalBack");
+const modalTag = document.getElementById("modalTag");
+const qText = document.getElementById("qText");
+const aText = document.getElementById("aText");
+const btnShowAnswer = document.getElementById("btnShowAnswer");
+const btnMarkUsed = document.getElementById("btnMarkUsed");
+
+let activeCell = null; // {col,row}
+
+function pickRandomCategories(n=5){
+  const copy = CATEGORY_POOL.slice();
+  // Fisher-Yates
+  for (let i=copy.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [copy[i],copy[j]]=[copy[j],copy[i]];
+  }
+  return copy.slice(0,n);
+}
+
+function pickOne(arr){
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function getQA(cat, value){
+  const pool = cat.levels?.[value];
+  if(!pool || pool.length === 0){
+    return { q: "Frage fehlt (bitte ergänzen).", a: "Antwort fehlt (bitte ergänzen)." };
+  }
+  return pickOne(pool);
+}
+
+function buildBoard({newCategories=true, reshuffleQ=false}={}) {
+  if (newCategories || currentCategories.length === 0) {
+    currentCategories = pickRandomCategories(5);
+  } else if (reshuffleQ) {
+    // Kategorien bleiben, aber Fragen neu auswürfeln
+    currentCategories = currentCategories.map(cat => ({ ...cat }));
+  }
+
+  board = currentCategories.map(cat => {
+    return VALUES.map(value => {
+      const qa = getQA(cat, value);
+      return {
+        value,
+        q: qa.q,
+        a: qa.a,
+        used: false
+      };
+    });
+  });
+
+  renderGrid();
+}
+
+
+function renderGrid(){
+  elGrid.innerHTML = "";
+
+  // Row 0: Kategorien
+  currentCategories.forEach((cat, col)=>{
+    const d = document.createElement("div");
+    d.className = "cat";
+    d.textContent = cat.name;
+    elGrid.appendChild(d);
+  });
+
+  // 5 Reihen (100..500)
+  for(let r=0;r<VALUES.length;r++){
+    for(let c=0;c<5;c++){
+      const cell = document.createElement("div");
+      cell.className = "cell";
+      cell.textContent = board[c][r].value;
+
+      if(board[c][r].used){
+        cell.classList.add("used");
+      }else{
+        cell.addEventListener("click", ()=> openCell(c,r));
+      }
+
+      elGrid.appendChild(cell);
+    }
+  }
+}
+
+function openCell(col,row){
+  if(board[col][row].used) return;
+
+  activeCell = {col,row};
+  const catName = currentCategories[col].name;
+  const value = board[col][row].value;
+
+  modalTag.innerHTML = `<span>${catName}</span><span>${value} Punkte</span>`;
+  qText.textContent = board[col][row].q;
+  aText.textContent = "Antwort: " + board[col][row].a;
+  aText.style.display = "none";
+  btnShowAnswer.disabled = false;
+  btnMarkUsed.disabled = false;
+
+  modalBack.style.display = "flex";
+}
+
+function closeModal(){
+  modalBack.style.display = "none";
+  activeCell = null;
+}
+
+document.getElementById("btnClose").addEventListener("click", closeModal);
+modalBack.addEventListener("click", (e)=>{
+  if(e.target === modalBack) closeModal();
+});
+
+btnShowAnswer.addEventListener("click", ()=>{
+  aText.style.display = "block";
+  btnShowAnswer.disabled = true;
+});
+
+btnMarkUsed.addEventListener("click", ()=>{
+  if(!activeCell) return;
+  const {col,row} = activeCell;
+  board[col][row].used = true;
+  closeModal();
+  renderGrid();
+});
+
+// Controls
+document.getElementById("btnReset").addEventListener("click", ()=>{
+  buildBoard({newCategories:true});
+});
+document.getElementById("btnShuffle").addEventListener("click", ()=>{
+  buildBoard({newCategories:false, reshuffleQ:true});
+});
+document.getElementById("btnClearUsed").addEventListener("click", ()=>{
+  for(let c=0;c<5;c++){
+    for(let r=0;r<5;r++){
+      board[c][r].used = false;
+    }
+  }
+  renderGrid();
+});
+
+// Scoreboard (optional)
+const scoreEl = document.getElementById("scores");
+let players = [
+  {name:"Spieler 1", points:0},
+  {name:"Spieler 2", points:0},
+  {name:"Spieler 3", points:0},
+  {name:"Spieler 4", points:0},
+];
+
+function renderScores(){
+  scoreEl.innerHTML = "";
+  players.forEach((p, idx)=>{
+    const box = document.createElement("div");
+    box.className = "player";
+
+    const name = document.createElement("input");
+    name.value = p.name;
+    name.addEventListener("input", ()=>{ players[idx].name = name.value; });
+
+    const row = document.createElement("div");
+    row.className = "row";
+
+    const pts = document.createElement("div");
+    pts.className = "points";
+    pts.textContent = p.points;
+
+    const mini = document.createElement("div");
+    mini.className = "mini";
+
+    const minus = document.createElement("button");
+    minus.className = "minus";
+    minus.textContent = "−100";
+    minus.addEventListener("click", ()=>{
+      players[idx].points -= 100;
+      renderScores();
+    });
+
+    const plus = document.createElement("button");
+    plus.className = "plus";
+    plus.textContent = "+100";
+    plus.addEventListener("click", ()=>{
+      players[idx].points += 100;
+      renderScores();
+    });
+
+    mini.appendChild(minus);
+    mini.appendChild(plus);
+
+    row.appendChild(pts);
+    row.appendChild(mini);
+
+    box.appendChild(name);
+    box.appendChild(row);
+    scoreEl.appendChild(box);
+  });
+}
+
+document.getElementById("btnResetScores").addEventListener("click", ()=>{
+  players = players.map(p=>({name:p.name, points:0}));
+  renderScores();
+});
+
+// Start
+buildBoard({newCategories:true});
+renderScores();
+</script>
+</body>
+</html>
