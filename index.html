@@ -307,9 +307,27 @@
 
     <section class="scoreboard">
       <div class="scorehead">
-        <h2>Punktetafel (optional)</h2>
-        <button id="btnResetScores">Scores = 0</button>
-      </div>
+  <h2>Punktetafel</h2>
+
+  <div style="display:flex; gap:8px; align-items:center;">
+    <label for="playerCount" style="font-size:13px;color:#aab2e8;">
+      Spieler:
+    </label>
+    <select id="playerCount">
+      <option value="1">1</option>
+      <option value="2">2</option>
+      <option value="3">3</option>
+      <option value="4" selected>4</option>
+      <option value="5">5</option>
+      <option value="6">6</option>
+      <option value="7">7</option>
+      <option value="8">8</option>
+    </select>
+
+    <button id="btnResetScores">Scores = 0</button>
+  </div>
+</div>
+
       <div class="scorelist" id="scores"></div>
       <p style="margin:10px 0 0;color:var(--muted);font-size:13px;">
         Tipp: Macht einen als Host. Der Host klickt die Felder an und zeigt Frage/Antwort.
@@ -1292,71 +1310,80 @@ document.getElementById("btnClearUsed").addEventListener("click", ()=>{
   renderGrid();
 });
 
-// Scoreboard (optional)
+// ===== SCOREBOARD (HOST-STEUERUNG) =====
 const scoreEl = document.getElementById("scores");
-let players = [
-  {name:"Spieler 1", points:0},
-  {name:"Spieler 2", points:0},
-  {name:"Spieler 3", points:0},
-  {name:"Spieler 4", points:0},
-];
 
+let players = []; // falls noch nicht existiert
+const playerCountSelect = document.getElementById("playerCount");
+let playerCount = Number(playerCountSelect?.value) || 4; // nimmt Dropdown-Wert
+
+// Spieler erstellen
+function buildPlayers(count){
+  players = [];
+  for(let i = 1; i <= count; i++){
+    players.push({ name: `Spieler ${i}`, points: 0 });
+  }
+  renderScores();
+}
+
+// Dropdown: Spielerzahl ändern (1–8)
+playerCountSelect.addEventListener("change", (e) => {
+  playerCount = Number(e.target.value);
+  buildPlayers(playerCount);
+});
+
+
+
+// Scoreboard anzeigen
 function renderScores(){
   scoreEl.innerHTML = "";
-  players.forEach((p, idx)=>{
-    const box = document.createElement("div");
-    box.className = "player";
-
-    const name = document.createElement("input");
-    name.value = p.name;
-    name.addEventListener("input", ()=>{ players[idx].name = name.value; });
-
-    const row = document.createElement("div");
-    row.className = "row";
-
-    const pts = document.createElement("div");
-    pts.className = "points";
-    pts.textContent = p.points;
-
-    const mini = document.createElement("div");
-    mini.className = "mini";
-
-    const minus = document.createElement("button");
-    minus.className = "minus";
-    minus.textContent = "−100";
-    minus.addEventListener("click", ()=>{
-      players[idx].points -= 100;
-      renderScores();
-    });
-
-    const plus = document.createElement("button");
-    plus.className = "plus";
-    plus.textContent = "+100";
-    plus.addEventListener("click", ()=>{
-      players[idx].points += 100;
-      renderScores();
-    });
-
-    mini.appendChild(minus);
-    mini.appendChild(plus);
-
-    row.appendChild(pts);
-    row.appendChild(mini);
-
-    box.appendChild(name);
-    box.appendChild(row);
-    scoreEl.appendChild(box);
+  players.forEach((p, idx) => {
+    const div = document.createElement("div");
+    div.className = "player";
+    div.innerHTML = `
+      <input value="${p.name}" 
+             onchange="players[${idx}].name=this.value">
+      <div class="row">
+        <div class="points">${p.points}</div>
+      </div>
+      <div class="mini">
+        <button onclick="changeScore(${idx}, 100)">+100</button>
+        <button onclick="changeScore(${idx}, -50)">-50</button>
+        <button onclick="setScore(${idx})">Set</button>
+      </div>
+    `;
+    scoreEl.appendChild(div);
   });
 }
 
+// Punkte ändern
+function changeScore(i, delta){
+  players[i].points += delta;
+  renderScores();
+}
+
+// Punkte manuell setzen
+function setScore(i){
+  const val = prompt("Neue Punktzahl:");
+  if(val !== null && !isNaN(val)){
+    players[i].points = Number(val);
+    renderScores();
+  }
+}
+
+// Initiale Spieleranzahl aus dem Dropdown (1–8)
+playerCount = Number(playerCountSelect.value) || 4;
+
+// Start: Spieler + Board
+buildPlayers(playerCount);
+buildBoard({ newCategories: true });
+
+// Scores zurücksetzen
 document.getElementById("btnResetScores").addEventListener("click", ()=>{
-  players = players.map(p=>({name:p.name, points:0}));
+  players.forEach(p => p.points = 0);
   renderScores();
 });
-
-// Start
-buildBoard({newCategories:true});
-renderScores();
 </script>
 </body>
 </html>
+
