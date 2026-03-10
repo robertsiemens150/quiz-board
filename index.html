@@ -293,13 +293,14 @@
 <body>
   <div class="wrap">
     <header>
-      <h1>Quiz-Board (Jeopardy Style)</h1>
-      <div class="controls">
-        <button class="primary" id="btnReset">Reset (neue Kategorien)</button>
-        <button id="btnShuffle">Nur Fragen neu mischen</button>
-        <button class="danger" id="btnClearUsed">Alle Felder wieder aktiv</button>
-      </div>
-    </header>
+  <h1>Quiz-Board (Jeopardy Style)</h1>
+
+  <div class="controls">
+    <button class="primary" id="btnReset">Reset (neue Kategorien)</button>
+    <button id="btnShuffle">Nur Fragen neu mischen</button>
+    <button class="danger" id="btnClearUsed">Alle Felder wieder aktiv</button>
+  </div>
+</header>
 
     <section class="board">
       <div class="grid" id="grid"></div>
@@ -351,6 +352,7 @@
 
       <div class="modalActions">
         <button id="btnShowAnswer">Antwort zeigen</button>
+	<button id="btnRerollQuestion">Neue Frage</button>
         <button class="primary" id="btnMarkUsed">Als benutzt markieren</button>
       </div>
     </div>
@@ -365,6 +367,11 @@
  */
 
 const VALUES = [100, 200, 300, 400, 500];
+let currentCategories = [];
+let board = [];
+
+// ⭐ HIER hinzufügen
+let activeCell = null; // {col,row}
 
 // Du kannst hier jederzeit neue Kategorien hinzufügen.
 // Jede Kategorie hat 5 Fragen (für 100..500). Bitte ca. passende Schwierigkeit.
@@ -1166,8 +1173,6 @@ levels:{
 
 
 
-let currentCategories = [];
-let board = []; // [col][row] -> {value, q, a, used}
 
 const elGrid = document.getElementById("grid");
 const modalBack = document.getElementById("modalBack");
@@ -1176,8 +1181,9 @@ const qText = document.getElementById("qText");
 const aText = document.getElementById("aText");
 const btnShowAnswer = document.getElementById("btnShowAnswer");
 const btnMarkUsed = document.getElementById("btnMarkUsed");
+const btnClose = document.getElementById("btnClose");
+const btnRerollQuestion = document.getElementById("btnRerollQuestion");
 
-let activeCell = null; // {col,row}
 
 function pickRandomCategories(n=5){
   const copy = CATEGORY_POOL.slice();
@@ -1270,45 +1276,95 @@ function openCell(col,row){
 
   modalBack.style.display = "flex";
 }
+function rerollCurrentQuestion(){
+  if(!activeCell) return;
+
+  const col = activeCell.col;
+  const row = activeCell.row;
+
+  const value = board[col][row].value;
+  const category = currentCategories[col];
+
+  const qa = getQA(category,value);
+
+  board[col][row].q = qa.q;
+  board[col][row].a = qa.a;
+  board[col][row].used = false;
+
+  qText.textContent = qa.q;
+  aText.textContent = "Antwort: " + qa.a;
+  aText.style.display = "none";
+}
 
 function closeModal(){
   modalBack.style.display = "none";
   activeCell = null;
 }
 
-document.getElementById("btnClose").addEventListener("click", closeModal);
-modalBack.addEventListener("click", (e)=>{
-  if(e.target === modalBack) closeModal();
-});
+if(btnClose){
+  btnClose.addEventListener("click", closeModal);
+}
 
-btnShowAnswer.addEventListener("click", ()=>{
-  aText.style.display = "block";
-  btnShowAnswer.disabled = true;
-});
+if(modalBack){
+  modalBack.addEventListener("click", (e)=>{
+    if(e.target === modalBack) closeModal();
+  });
+}
 
-btnMarkUsed.addEventListener("click", ()=>{
-  if(!activeCell) return;
-  const {col,row} = activeCell;
-  board[col][row].used = true;
-  closeModal();
-  renderGrid();
-});
+
+if(btnShowAnswer){
+  btnShowAnswer.addEventListener("click", ()=>{
+    aText.style.display = "block";
+    btnShowAnswer.disabled = true;
+  });
+}
+if(btnMarkUsed){
+  btnMarkUsed.addEventListener("click", ()=>{
+    if(!activeCell) return;
+    const {col,row} = activeCell;
+    board[col][row].used = true;
+    closeModal();
+    renderGrid();
+  });
+}
 
 // Controls
-document.getElementById("btnReset").addEventListener("click", ()=>{
-  buildBoard({newCategories:true});
-});
-document.getElementById("btnShuffle").addEventListener("click", ()=>{
-  buildBoard({newCategories:false, reshuffleQ:true});
-});
-document.getElementById("btnClearUsed").addEventListener("click", ()=>{
-  for(let c=0;c<5;c++){
-    for(let r=0;r<5;r++){
-      board[c][r].used = false;
+
+const btnReset = document.getElementById("btnReset");
+if(btnReset){
+  btnReset.addEventListener("click", ()=>{
+    buildBoard({newCategories:true});
+  });
+}
+
+const btnShuffle = document.getElementById("btnShuffle");
+if(btnShuffle){
+  btnShuffle.addEventListener("click", ()=>{
+    buildBoard({newCategories:false, reshuffleQ:true});
+  });
+}
+
+const btnClearUsed = document.getElementById("btnClearUsed");
+if(btnClearUsed){
+  btnClearUsed.addEventListener("click", ()=>{
+    for(let c=0;c<5;c++){
+      for(let r=0;r<5;r++){
+        board[c][r].used = false;
+      }
     }
-  }
-  renderGrid();
-});
+    renderGrid();
+  });
+}
+
+// ⭐ Neue Frage Button
+const rerollBtn = document.getElementById("btnRerollQuestion");
+
+if(rerollBtn){
+  rerollBtn.addEventListener("click", rerollCurrentQuestion);
+}
+buildBoard({newCategories:true});
+// ⭐ Spiel starten
+buildBoard({newCategories:true});
 
 // ===== SCOREBOARD (HOST-STEUERUNG) =====
 const scoreEl = document.getElementById("scores");
@@ -1386,4 +1442,3 @@ document.getElementById("btnResetScores").addEventListener("click", ()=>{
 </script>
 </body>
 </html>
-
